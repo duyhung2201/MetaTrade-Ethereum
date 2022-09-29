@@ -109,6 +109,7 @@ contract DigitalAssetContract {
             delete customerAddrToData[msg.sender];
 
             emit refund(msg.sender, fundAmount);
+            return;
         }
         // Double check
         if (userFund[msg.sender] < digitalAssetPrice) {
