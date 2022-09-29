@@ -76,11 +76,11 @@ module.exports = {
         },
     },
     gasReporter: {
-        enabled: REPORT_GAS,
+        enabled: true,
         currency: "USD",
         outputFile: "gas-report.txt",
         noColors: true,
-        // coinmarketcap: process.env.COINMARKETCAP_API_KEY,
+        coinmarketcap: "7247988d-8003-4894-b315-cb5b5f002c79",
     },
     contractSizer: {
         runOnCompile: false,

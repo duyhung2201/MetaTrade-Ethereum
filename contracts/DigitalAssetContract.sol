@@ -33,11 +33,11 @@ contract DigitalAssetContract {
     address public owner;
 
     // Event declaration
-    event customerFunded(address indexed customerAddr, uint256 indexed fundAmountl);
+    event customerFunded(address indexed customerAddr, uint256 indexed fundAmount);
 
     event accessGranted(string indexed ipfsURI, address indexed customerAddr);
 
-    event hashConfirmed(string indexed encryptedSymmetricKey);
+    event refund(address indexed customerAddr, uint256 indexed fundAmount);
 
     // Modifier declaration
     modifier onlyOwner() {
@@ -89,14 +89,11 @@ contract DigitalAssetContract {
             // customer has cancelled access request --> they no longer have fund in the contract
             revert haveNotRegister();
         }
-        customerAddrToData[customerAddr].encryptedSymmetricKey = encryptedSymmetricKey;
-        customerAddrToData[customerAddr].encryptedFileHash = encryptedFileHash;
-        customerAddrToData[customerAddr].ipfsURI = ipfsURI;
-        // customerAddrToData[customerAddr] = customerAssetData(
-        //     encryptedSymmetricKey,
-        //     encryptedFileHash,
-        //     ipfsURI
-        // );
+        customerAddrToData[customerAddr] = customerAssetData(
+            encryptedSymmetricKey,
+            encryptedFileHash,
+            ipfsURI
+        );
         emit accessGranted(ipfsURI, customerAddr);
     }
 
@@ -104,13 +101,15 @@ contract DigitalAssetContract {
         if (bytes(customerAddrToData[msg.sender].ipfsURI).length == 0) {
             revert haveNotGrantedAccess();
         }
-        // if (customerHash != customerAddrToData[msg.sender].encryptedFileHash) {
         if (!compareStrings(customerHash, customerAddrToData[msg.sender].encryptedFileHash)) {
             // send back fund to customer in case of unmatch hashes
-            userFundWithdrawable[msg.sender] += userFund[msg.sender];
+            uint256 fundAmount = userFund[msg.sender];
+            userFundWithdrawable[msg.sender] += fundAmount;
             userFund[msg.sender] = 0;
             delete customerAddrToData[msg.sender];
-            revert hashNotMatch();
+
+            emit refund(msg.sender, fundAmount);
+            return;
         }
         // Double check
         if (userFund[msg.sender] < digitalAssetPrice) {
@@ -129,11 +128,7 @@ contract DigitalAssetContract {
         return customerAddrToData[msg.sender].encryptedSymmetricKey;
     }
 
-    function getIpfsURI(address customerAddr) public view returns (string memory) {
-        // if (bytes(customerAddrToData[msg.sender].ipfsURI).length == 0) {
-        //     revert haveNotGrantedAccess();
-        // }
-        // return customerAddrToData[msg.sender].ipfsURI;
+    function getIpfsURI(address customerAddr) public view returns (string memory) {    
         if (bytes(customerAddrToData[customerAddr].ipfsURI).length == 0) {
             revert haveNotGrantedAccess();
         }
