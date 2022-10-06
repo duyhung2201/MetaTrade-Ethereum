@@ -1,18 +1,18 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.9;
+pragma solidity ^0.4.19;
 
 // Declare errors
-error PriceNotMet(uint256 price);
-error notContractOwner();
-error hashNotMatch();
-error haveNotGrantedAccess();
-error hasRequested();
-error notEnoughFund();
-error accessGrantedAlready();
-error noFundToWithdraw();
-error haveNotRegister();
-error youAreTheOwner();
-error haveNotCompareHashes();
+// error PriceNotMet(uint256 price);
+// error notContractOwner();
+// error hashNotMatch();
+// error haveNotGrantedAccess();
+// error hasRequested();
+// error notEnoughFund();
+// error accessGrantedAlready();
+// error noFundToWithdraw();
+// error haveNotRegister();
+// error youAreTheOwner();
+// error haveNotCompareHashes();
 
 // smart contract
 contract DigitalAssetContract {
@@ -42,13 +42,15 @@ contract DigitalAssetContract {
     // Modifier declaration
     modifier onlyOwner() {
         if (msg.sender != owner) {
-            revert notContractOwner();
+            // revert notContractOwner();
+            // revert("notContractOwner");
+            revert();
         }
         _;
     }
 
     // Constructor
-    constructor(uint256 assetPrice) {
+    function DigitalAssetContract(uint256 assetPrice) {
         owner = msg.sender;
         digitalAssetPrice = assetPrice;
     }
@@ -62,14 +64,17 @@ contract DigitalAssetContract {
         delete customerAddrToData[msg.sender];
         userComparedHashes[msg.sender] = false;
         if (msg.sender == owner) {
-            revert youAreTheOwner();
+            // revert("youAreTheOwner");
+            revert();
         }
         if (msg.value < digitalAssetPrice) {
-            revert PriceNotMet(digitalAssetPrice);
+            // revert("PriceNotMet" + digitalAssetPrice);
+            revert();
         }
         if (userFund[msg.sender] >= digitalAssetPrice) {
             // prevent duplicate payment --> if customer has paid, they should wait for granted access to get ipfs link
-            revert hasRequested();
+            // revert("hasRequested");
+            revert();
         }
         userFund[msg.sender] += msg.value;
         emit customerFunded(msg.sender, msg.value);
@@ -77,17 +82,19 @@ contract DigitalAssetContract {
 
     function grantAccess(
         address customerAddr,
-        string memory encryptedFileHash, // fixed from 20 bytes to 32 bytes
-        string memory encryptedSymmetricKey,
-        string calldata ipfsURI
+        string encryptedFileHash, // fixed from 20 bytes to 32 bytes
+        string encryptedSymmetricKey,
+        string ipfsURI
     ) external onlyOwner {
         if (bytes(customerAddrToData[customerAddr].ipfsURI).length != 0) {
             // Cannot cancel the granted access
-            revert accessGrantedAlready();
+            // revert("accessGrantedAlready");
+            revert();
         }
         if (userFund[customerAddr] < digitalAssetPrice) {
             // customer has cancelled access request --> they no longer have fund in the contract
-            revert haveNotRegister();
+            // revert("haveNotRegister");
+            revert();
         }
         customerAddrToData[customerAddr] = customerAssetData(
             encryptedSymmetricKey,
@@ -97,9 +104,10 @@ contract DigitalAssetContract {
         emit accessGranted(ipfsURI, customerAddr);
     }
 
-    function compareHashes(string memory customerHash) external {
+    function compareHashes(string customerHash) external {
         if (bytes(customerAddrToData[msg.sender].ipfsURI).length == 0) {
-            revert haveNotGrantedAccess();
+            // revert("haveNotGrantedAccess");
+            revert();
         }
         if (!compareStrings(customerHash, customerAddrToData[msg.sender].encryptedFileHash)) {
             // send back fund to customer in case of unmatch hashes
@@ -113,7 +121,8 @@ contract DigitalAssetContract {
         }
         // Double check
         if (userFund[msg.sender] < digitalAssetPrice) {
-            revert notEnoughFund();
+            // revert("notEnoughFund");
+            revert();
         }
         userFundWithdrawable[owner] += digitalAssetPrice; // pay license fee to the content owner
         userFund[msg.sender] = 0;
@@ -123,37 +132,43 @@ contract DigitalAssetContract {
 
     function getEncryptedSymmetricKey() public view returns (string memory) {
         if (userComparedHashes[msg.sender] != true) {
-            revert haveNotCompareHashes();
+            // revert("haveNotCompareHashes");
+            revert();
         }
         return customerAddrToData[msg.sender].encryptedSymmetricKey;
     }
 
-    function getIpfsURI(address customerAddr) public view returns (string memory) {    
+    function getIpfsURI(address customerAddr) public view returns (string memory) {
         if (bytes(customerAddrToData[customerAddr].ipfsURI).length == 0) {
-            revert haveNotGrantedAccess();
+            // revert("haveNotGrantedAccess");
+            revert();
         }
         return customerAddrToData[customerAddr].ipfsURI;
     }
 
     function withdrawFund() public {
         if (userFundWithdrawable[msg.sender] <= 0) {
-            revert noFundToWithdraw();
+            // revert("noFundToWithdraw");
+            revert();
         }
 
         uint256 amountWithdraw = userFundWithdrawable[msg.sender];
         userFundWithdrawable[msg.sender] = 0;
-        (bool success, ) = payable(msg.sender).call{value: amountWithdraw}("");
-        require(success, "Transfer failed");
+        // bool success = msg.sender.transfer(amountWithdraw);
+        msg.sender.transfer(amountWithdraw);
+        // require(success, "Transfer failed");
     }
 
     function cancelRequest() public {
         if (bytes(customerAddrToData[msg.sender].ipfsURI).length != 0) {
             // Cannot cancel the granted access
-            revert accessGrantedAlready();
+            // revert("accessGrantedAlready");
+            revert();
         }
         // can be cancelled if access has not been granted and customer has paid money
         if (userFund[msg.sender] <= 0) {
-            revert haveNotRegister();
+            // revert("haveNotRegister");
+            revert();
         }
         delete customerAddrToData[msg.sender];
         userFundWithdrawable[msg.sender] = userFund[msg.sender];
@@ -169,6 +184,6 @@ contract DigitalAssetContract {
     }
 
     function compareStrings(string memory a, string memory b) internal pure returns (bool) {
-        return keccak256(abi.encodePacked(a)) == keccak256(abi.encodePacked(b));
+        return keccak256(a) == keccak256(b);
     }
 }
