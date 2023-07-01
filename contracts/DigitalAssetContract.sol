@@ -31,6 +31,8 @@ contract DigitalAssetContract {
     mapping(address => bool) private userComparedHashes;
     uint256 public digitalAssetPrice;
     address public owner;
+    address public parentAsset;
+    uint256 public commission;
 
     // Event declaration
     event customerFunded(address indexed customerAddr, uint256 indexed fundAmount);
@@ -50,9 +52,15 @@ contract DigitalAssetContract {
     }
 
     // Constructor
-    function DigitalAssetContract(uint256 assetPrice) {
+    function DigitalAssetContract(
+        uint256 assetPrice,
+        address _parentAsset,
+        uint256 _commission
+    ) {
         owner = msg.sender;
         digitalAssetPrice = assetPrice;
+        parentAsset = _parentAsset;
+        commission = _commission;
     }
 
     // Function definition
@@ -128,6 +136,10 @@ contract DigitalAssetContract {
         userFund[msg.sender] = 0;
         userFundWithdrawable[msg.sender] = 0;
         userComparedHashes[msg.sender] = true;
+    }
+
+    function reportPlagiarism() external {
+        
     }
 
     function getEncryptedSymmetricKey() public view returns (string memory) {
