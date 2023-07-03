@@ -31,7 +31,7 @@ contract DigitalAssetContract {
     mapping(address => bool) private userComparedHashes;
     uint256 public digitalAssetPrice;
     address public owner;
-    address public parentAsset;
+    DigitalAssetContract public parentAsset;
     uint256 public commission;
 
     // Event declaration
@@ -54,9 +54,9 @@ contract DigitalAssetContract {
     // Constructor
     function DigitalAssetContract(
         uint256 assetPrice,
-        address _parentAsset,
+        DigitalAssetContract _parentAsset,
         uint256 _commission
-    ) {
+    ) public {
         owner = msg.sender;
         digitalAssetPrice = assetPrice;
         parentAsset = _parentAsset;
@@ -132,14 +132,21 @@ contract DigitalAssetContract {
             // revert("notEnoughFund");
             revert();
         }
-        userFundWithdrawable[owner] += digitalAssetPrice; // pay license fee to the content owner
+
+        uint256 commissionFee = (commission * digitalAssetPrice) / 10**18;
+        userFundWithdrawable[owner] += digitalAssetPrice - commissionFee; // pay license fee to the content owner
         userFund[msg.sender] = 0;
         userFundWithdrawable[msg.sender] = 0;
         userComparedHashes[msg.sender] = true;
+
+        bool success = false;
+        bytes4 methodId = bytes4(keccak256("receive()")); // Method ID for "receive()"
+        success = address(parentAsset).call.value(commissionFee)(methodId);
+        require(success);
     }
 
-    function reportPlagiarism() external {
-        
+    function receive() public payable {
+        userFundWithdrawable[owner] += msg.value;
     }
 
     function getEncryptedSymmetricKey() public view returns (string memory) {
