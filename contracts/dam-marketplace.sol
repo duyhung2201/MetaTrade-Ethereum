@@ -1,63 +1,59 @@
-// SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.9;
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+import "@openzeppelin/contracts/proxy/Clones.sol";
+import "./DigitalAssetContract.sol";
 
 // Declare errors
 error notEnoughListingFee();
 
 // smart contract
-contract damMartketplace {
-    // Data type definition
-    struct customerAssetData {
-        bytes32 symmetricKey;
-        bytes20 encryptedFileHash;
-        string ipfsURI;
-    }
-
-    struct ownerAssetData {
-        address assetOwner;
-        uint256 assetPrice;
-        string descriptionUri;
-    }
-
+contract DamMartketplace {
     // State variables
     uint256 public immutable listingFee;
     address contractOnwer;
-    uint256 private assetId = 0;
+
     // assetId => customer address => asset data that the customer wants to get
-    mapping(uint256 => mapping(address => customerAssetData))
-        private assetIdToCustomerData;
-    mapping(address => uint256) private userFund;
-    mapping(address => uint256) private userFundWithdrawable;
-    mapping(uint256 => ownerAssetData) public assetIdToOnwerData;
+
+    mapping(address => bool) public isAssetActive;
 
     // Event declaration
-    event listedAsset(uint256 indexed assetId);
+    event ListAsset(uint256 indexed assetId, address indexed assetAddress);
 
     // Modifier declaration
+
+    using Clones for address;
+    address immutable template;
 
     // Constructor
     constructor(uint256 listingFeeInitialized) {
         listingFee = listingFeeInitialized;
         contractOnwer = msg.sender;
+        template = address(new DigitalAssetContract());
     }
 
     // Function definition
-    function listAsset(string memory descriptionUri, uint256 assetPrice)
-        public
-        payable
-    {
+    function listAsset(
+        uint256 _assetPrice,
+        address _parentAsset,
+        uint256 _commissionRate
+    ) public payable returns (address) {
         if (msg.value < listingFee) {
             revert notEnoughListingFee();
         }
-        assetIdToOnwerData[assetId] = ownerAssetData(
-            msg.sender,
-            assetPrice,
-            descriptionUri
-        );
-        assetId += 1;
-        userFundWithdrawable[contractOnwer] += msg.value;
-        emit listedAsset(assetId);
+        DigitalAssetContract digitalAssetContract = DigitalAssetContract(template.clone());
+
+        digitalAssetContract.initialize(_assetPrice, _parentAsset, _commissionRate);
+        isAssetActive[address(digitalAssetContract)] = true;
+        emit ListAsset(_assetPrice, address(digitalAssetContract));
+        return address(digitalAssetContract);
     }
 
-    function cancelListing(uint256 assetIdToCancel) public {}
+    function cancelListing(address digitalAssetContract) public {
+        isAssetActive[digitalAssetContract] = false;
+    }
+
+    function reportPlagiarism(address digitalAssetContract) public {
+        isAssetActive[digitalAssetContract] = false;
+    }
 }

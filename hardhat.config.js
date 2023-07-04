@@ -81,6 +81,7 @@ module.exports = {
         outputFile: "gas-report.txt",
         noColors: true,
         coinmarketcap: "7247988d-8003-4894-b315-cb5b5f002c79",
+        gasPrice: 10
     },
     contractSizer: {
         runOnCompile: false,
@@ -95,12 +96,27 @@ module.exports = {
             default: 1,
         },
     },
+    // solidity: {
+    //     compilers: [
+    //         {
+    //             version: "0.8.9",
+    //         },
+    //     ],
+    //     settings: {
+    //         optimizer: {
+    //             enabled: true,
+    //             runs: 200,
+    //         },
+    //     },
+    // },
     solidity: {
-        compilers: [
-            {
-                version: "0.8.9",
+        version: "0.4.21",
+        settings: {
+            optimizer: {
+                enabled: true,
+                runs: 200,
             },
-        ],
+        },
     },
     mocha: {
         timeout: 200000, // 200 seconds max for running tests
