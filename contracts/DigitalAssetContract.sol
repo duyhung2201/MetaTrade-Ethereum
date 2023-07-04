@@ -1,197 +1,140 @@
-// SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.4.19;
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
 
-// Declare errors
-// error PriceNotMet(uint256 price);
-// error notContractOwner();
-// error hashNotMatch();
-// error haveNotGrantedAccess();
-// error hasRequested();
-// error notEnoughFund();
-// error accessGrantedAlready();
-// error noFundToWithdraw();
-// error haveNotRegister();
-// error youAreTheOwner();
-// error haveNotCompareHashes();
-
-// smart contract
 contract DigitalAssetContract {
-    // Data type definition
-    struct customerAssetData {
-        // AES-256
-        string encryptedSymmetricKey; // 0x7465737400000000000000000000000000000000000000000000000000000000
-        string encryptedFileHash; // fixed to 32 bytes
+    struct CustomerAssetData {
+        string encryptedSymmetricKey;
+        string encryptedFileHash;
         string ipfsURI;
     }
 
-    // State variables
-    mapping(address => customerAssetData) private customerAddrToData; // private
-    mapping(address => uint256) private userFund; // private
-    mapping(address => uint256) private userFundWithdrawable; // private
+    mapping(address => CustomerAssetData) private customerAddrToData;
+    mapping(address => uint256) private userFund;
+    mapping(address => uint256) private userFundWithdrawable;
     mapping(address => bool) private userComparedHashes;
     uint256 public digitalAssetPrice;
     address public owner;
     DigitalAssetContract public parentAsset;
-    uint256 public commission;
+    uint256 public commissionRate;
 
-    // Event declaration
-    event customerFunded(address indexed customerAddr, uint256 indexed fundAmount);
+    event CustomerFunded(address indexed customerAddr, uint256 indexed fundAmount);
+    event AccessGranted(string indexed ipfsURI, address indexed customerAddr);
+    event Refund(address indexed customerAddr, uint256 indexed fundAmount);
 
-    event accessGranted(string indexed ipfsURI, address indexed customerAddr);
-
-    event refund(address indexed customerAddr, uint256 indexed fundAmount);
-
-    // Modifier declaration
     modifier onlyOwner() {
-        if (msg.sender != owner) {
-            // revert notContractOwner();
-            // revert("notContractOwner");
-            revert();
-        }
+        require(msg.sender == owner, "Caller is not the owner");
         _;
     }
 
-    // Constructor
-    function DigitalAssetContract(
+    function initialize(
         uint256 assetPrice,
-        DigitalAssetContract _parentAsset,
-        uint256 _commission
+        address _parentAsset,
+        uint256 _commissionRate
     ) public {
         owner = msg.sender;
         digitalAssetPrice = assetPrice;
-        parentAsset = _parentAsset;
-        commission = _commission;
+        parentAsset = DigitalAssetContract(_parentAsset);
+        commission = _commissionRate;
     }
 
-    // Function definition
     function updatePrice(uint256 newPrice) public onlyOwner {
         digitalAssetPrice = newPrice;
     }
 
     function registerRequest() public payable {
+        require(msg.sender != owner, "Caller is the owner");
+        require(msg.value >= digitalAssetPrice, "Price not met");
+        require(userFund[msg.sender] < digitalAssetPrice, "Already requested");
+
         delete customerAddrToData[msg.sender];
         userComparedHashes[msg.sender] = false;
-        if (msg.sender == owner) {
-            // revert("youAreTheOwner");
-            revert();
-        }
-        if (msg.value < digitalAssetPrice) {
-            // revert("PriceNotMet" + digitalAssetPrice);
-            revert();
-        }
-        if (userFund[msg.sender] >= digitalAssetPrice) {
-            // prevent duplicate payment --> if customer has paid, they should wait for granted access to get ipfs link
-            // revert("hasRequested");
-            revert();
-        }
+
         userFund[msg.sender] += msg.value;
-        emit customerFunded(msg.sender, msg.value);
+
+        emit CustomerFunded(msg.sender, msg.value);
     }
 
     function grantAccess(
         address customerAddr,
-        string encryptedFileHash, // fixed from 20 bytes to 32 bytes
-        string encryptedSymmetricKey,
-        string ipfsURI
+        string memory encryptedFileHash,
+        string memory encryptedSymmetricKey,
+        string memory ipfsURI
     ) external onlyOwner {
-        if (bytes(customerAddrToData[customerAddr].ipfsURI).length != 0) {
-            // Cannot cancel the granted access
-            // revert("accessGrantedAlready");
-            revert();
-        }
-        if (userFund[customerAddr] < digitalAssetPrice) {
-            // customer has cancelled access request --> they no longer have fund in the contract
-            // revert("haveNotRegister");
-            revert();
-        }
-        customerAddrToData[customerAddr] = customerAssetData(
+        require(
+            bytes(customerAddrToData[customerAddr].ipfsURI).length == 0,
+            "Access already granted"
+        );
+        require(userFund[customerAddr] >= digitalAssetPrice, "Not registered");
+
+        customerAddrToData[customerAddr] = CustomerAssetData(
             encryptedSymmetricKey,
             encryptedFileHash,
             ipfsURI
         );
-        emit accessGranted(ipfsURI, customerAddr);
+
+        emit AccessGranted(ipfsURI, customerAddr);
     }
 
-    function compareHashes(string customerHash) external {
-        if (bytes(customerAddrToData[msg.sender].ipfsURI).length == 0) {
-            // revert("haveNotGrantedAccess");
-            revert();
-        }
+    function compareHashes(string memory customerHash) external {
+        require(bytes(customerAddrToData[msg.sender].ipfsURI).length != 0, "Access not granted");
+
         if (!compareStrings(customerHash, customerAddrToData[msg.sender].encryptedFileHash)) {
-            // send back fund to customer in case of unmatch hashes
             uint256 fundAmount = userFund[msg.sender];
-            userFundWithdrawable[msg.sender] += fundAmount;
             userFund[msg.sender] = 0;
+            userFundWithdrawable[msg.sender] += fundAmount;
+
             delete customerAddrToData[msg.sender];
 
-            emit refund(msg.sender, fundAmount);
+            emit Refund(msg.sender, fundAmount);
             return;
         }
-        // Double check
-        if (userFund[msg.sender] < digitalAssetPrice) {
-            // revert("notEnoughFund");
-            revert();
-        }
 
-        uint256 commissionFee = (commission * digitalAssetPrice) / 10**18;
-        userFundWithdrawable[owner] += digitalAssetPrice - commissionFee; // pay license fee to the content owner
+        require(userFund[msg.sender] >= digitalAssetPrice, "Not enough funds");
+
+        uint256 commissionFee = (commissionRate * digitalAssetPrice) / 10**18;
         userFund[msg.sender] = 0;
         userFundWithdrawable[msg.sender] = 0;
+
+        userFundWithdrawable[owner] += digitalAssetPrice - commissionFee;
         userComparedHashes[msg.sender] = true;
 
-        bool success = false;
-        bytes4 methodId = bytes4(keccak256("receive()")); // Method ID for "receive()"
-        success = address(parentAsset).call.value(commissionFee)(methodId);
-        require(success);
+        (bool success, ) = address(parentAsset).call{value: commissionFee}("");
+        require(success, "Transfer to parentAsset failed");
     }
 
-    function receive() public payable {
+    receive() external payable {
         userFundWithdrawable[owner] += msg.value;
     }
 
     function getEncryptedSymmetricKey() public view returns (string memory) {
-        if (userComparedHashes[msg.sender] != true) {
-            // revert("haveNotCompareHashes");
-            revert();
-        }
+        require(userComparedHashes[msg.sender], "Hashes not compared");
         return customerAddrToData[msg.sender].encryptedSymmetricKey;
     }
 
     function getIpfsURI(address customerAddr) public view returns (string memory) {
-        if (bytes(customerAddrToData[customerAddr].ipfsURI).length == 0) {
-            // revert("haveNotGrantedAccess");
-            revert();
-        }
+        require(bytes(customerAddrToData[customerAddr].ipfsURI).length != 0, "Access not granted");
         return customerAddrToData[customerAddr].ipfsURI;
     }
 
     function withdrawFund() public {
-        if (userFundWithdrawable[msg.sender] <= 0) {
-            // revert("noFundToWithdraw");
-            revert();
-        }
+        uint256 amountToWithdraw = userFundWithdrawable[msg.sender];
+        require(amountToWithdraw > 0, "No funds to withdraw");
 
-        uint256 amountWithdraw = userFundWithdrawable[msg.sender];
         userFundWithdrawable[msg.sender] = 0;
-        // bool success = msg.sender.transfer(amountWithdraw);
-        msg.sender.transfer(amountWithdraw);
-        // require(success, "Transfer failed");
+        payable(msg.sender).transfer(amountToWithdraw);
     }
 
     function cancelRequest() public {
-        if (bytes(customerAddrToData[msg.sender].ipfsURI).length != 0) {
-            // Cannot cancel the granted access
-            // revert("accessGrantedAlready");
-            revert();
-        }
-        // can be cancelled if access has not been granted and customer has paid money
-        if (userFund[msg.sender] <= 0) {
-            // revert("haveNotRegister");
-            revert();
-        }
-        delete customerAddrToData[msg.sender];
-        userFundWithdrawable[msg.sender] = userFund[msg.sender];
+        require(
+            bytes(customerAddrToData[msg.sender].ipfsURI).length == 0,
+            "Access already granted"
+        );
+        require(userFund[msg.sender] > 0, "Not registered");
+
+        userFundWithdrawable[msg.sender] += userFund[msg.sender];
         userFund[msg.sender] = 0;
+
+        delete customerAddrToData[msg.sender];
     }
 
     function getPrice() public view returns (uint256) {
@@ -203,6 +146,6 @@ contract DigitalAssetContract {
     }
 
     function compareStrings(string memory a, string memory b) internal pure returns (bool) {
-        return keccak256(a) == keccak256(b);
+        return keccak256(abi.encodePacked(a)) == keccak256(abi.encodePacked(b));
     }
 }

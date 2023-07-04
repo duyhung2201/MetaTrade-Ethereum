@@ -17,6 +17,7 @@
     "solidity-coverage": "^0.7.21"
   },
   "dependencies": {
+    "@openzeppelin/contracts": "^4.9.2",
     "blob": "^0.1.0",
     "crypto": "^1.0.1",
     "eth-crypto": "^2.3.0",
