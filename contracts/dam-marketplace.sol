@@ -5,7 +5,7 @@ import "@openzeppelin/contracts/proxy/Clones.sol";
 import "./DigitalAssetContract.sol";
 
 // Declare errors
-error notEnoughListingFee();
+error NotEnoughListingFee();
 
 // smart contract
 contract DamMartketplace {
@@ -22,26 +22,28 @@ contract DamMartketplace {
 
     // Modifier declaration
 
-    using Clones for address;
-    address immutable template;
+    using Clones for address payable;
+    address payable immutable template;
 
     // Constructor
     constructor(uint256 listingFeeInitialized) {
         listingFee = listingFeeInitialized;
         contractOnwer = msg.sender;
-        template = address(new DigitalAssetContract());
+        template = payable(new DigitalAssetContract());
     }
 
     // Function definition
     function listAsset(
         uint256 _assetPrice,
-        address _parentAsset,
+        address payable _parentAsset,
         uint256 _commissionRate
     ) public payable returns (address) {
         if (msg.value < listingFee) {
-            revert notEnoughListingFee();
+            revert NotEnoughListingFee();
         }
-        DigitalAssetContract digitalAssetContract = DigitalAssetContract(template.clone());
+        DigitalAssetContract digitalAssetContract = DigitalAssetContract(
+            payable(template.clone())
+        );
 
         digitalAssetContract.initialize(_assetPrice, _parentAsset, _commissionRate);
         isAssetActive[address(digitalAssetContract)] = true;

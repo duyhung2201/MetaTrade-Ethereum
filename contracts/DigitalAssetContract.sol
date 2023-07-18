@@ -28,13 +28,13 @@ contract DigitalAssetContract {
 
     function initialize(
         uint256 assetPrice,
-        address _parentAsset,
+        address payable _parentAsset,
         uint256 _commissionRate
     ) public {
         owner = msg.sender;
         digitalAssetPrice = assetPrice;
         parentAsset = DigitalAssetContract(_parentAsset);
-        commission = _commissionRate;
+        commissionRate = _commissionRate;
     }
 
     function updatePrice(uint256 newPrice) public onlyOwner {
