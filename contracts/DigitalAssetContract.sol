@@ -28,13 +28,13 @@ contract DigitalAssetContract {
 
     function initialize(
         uint256 assetPrice,
-        address _parentAsset,
+        address payable _parentAsset,
         uint256 _commissionRate
     ) public {
         owner = msg.sender;
         digitalAssetPrice = assetPrice;
         parentAsset = DigitalAssetContract(_parentAsset);
-        commission = _commissionRate;
+        commissionRate = _commissionRate;
     }
 
     function updatePrice(uint256 newPrice) public onlyOwner {
@@ -109,6 +109,13 @@ contract DigitalAssetContract {
     function getEncryptedSymmetricKey() public view returns (string memory) {
         require(userComparedHashes[msg.sender], "Hashes not compared");
         return customerAddrToData[msg.sender].encryptedSymmetricKey;
+    }
+
+    function isCustomer() public view returns (bool) {
+        if (userComparedHashes[msg.sender]) {
+            return true;
+        }
+        return false;
     }
 
     function getIpfsURI(address customerAddr) public view returns (string memory) {
