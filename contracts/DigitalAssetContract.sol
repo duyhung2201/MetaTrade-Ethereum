@@ -111,6 +111,13 @@ contract DigitalAssetContract {
         return customerAddrToData[msg.sender].encryptedSymmetricKey;
     }
 
+    function isCustomer() public view returns (bool) {
+        if (userComparedHashes[msg.sender]) {
+            return true;
+        }
+        return false;
+    }
+
     function getIpfsURI(address customerAddr) public view returns (string memory) {
         require(bytes(customerAddrToData[customerAddr].ipfsURI).length != 0, "Access not granted");
         return customerAddrToData[customerAddr].ipfsURI;

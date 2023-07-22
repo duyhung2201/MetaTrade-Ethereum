@@ -13,15 +13,14 @@ contract DamMartketplace {
     uint256 public immutable listingFee;
     address contractOnwer;
 
-    // assetId => customer address => asset data that the customer wants to get
-
     mapping(address => bool) public isAssetActive;
+    mapping(DigitalAssetContract => mapping(address => uint8)) public rating;
 
     // Event declaration
-    event ListAsset(uint256 indexed assetId, address indexed assetAddress);
+    event ListAsset(DigitalAssetContract indexed assetAddress, uint256 indexed price);
+    event Rating(DigitalAssetContract indexed asset, address indexed customerAddr, uint8 star);
 
     // Modifier declaration
-
     using Clones for address payable;
     address payable immutable template;
 
@@ -47,12 +46,21 @@ contract DamMartketplace {
 
         digitalAssetContract.initialize(_assetPrice, _parentAsset, _commissionRate);
         isAssetActive[address(digitalAssetContract)] = true;
-        emit ListAsset(_assetPrice, address(digitalAssetContract));
+        emit ListAsset(digitalAssetContract, _assetPrice);
         return address(digitalAssetContract);
     }
 
     function cancelListing(address digitalAssetContract) public {
         isAssetActive[digitalAssetContract] = false;
+    }
+
+    function rateAsset(DigitalAssetContract asset, uint8 star) public {
+        bool isCustomer = asset.isCustomer();
+        require(isCustomer, "Not a customer");
+        require(star <= 5, "Invalid rating");
+
+        rating[asset][msg.sender] = star;
+        emit Rating(asset, msg.sender, star);
     }
 
     function reportPlagiarism(address digitalAssetContract) public {
