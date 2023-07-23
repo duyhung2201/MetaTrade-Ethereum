@@ -13,7 +13,7 @@ contract DamMartketplace {
     uint256 public immutable listingFee;
     address contractOnwer;
 
-    mapping(address => bool) public isAssetActive;
+    mapping(DigitalAssetContract => bool) public isAssetActive;
     mapping(DigitalAssetContract => mapping(address => uint8)) public rating;
 
     // Event declaration
@@ -36,7 +36,7 @@ contract DamMartketplace {
         uint256 _assetPrice,
         address payable _parentAsset,
         uint256 _commissionRate
-    ) public payable returns (address) {
+    ) public payable returns (DigitalAssetContract) {
         if (msg.value < listingFee) {
             revert NotEnoughListingFee();
         }
@@ -44,26 +44,30 @@ contract DamMartketplace {
             payable(template.clone())
         );
 
-        digitalAssetContract.initialize(_assetPrice, _parentAsset, _commissionRate);
-        isAssetActive[address(digitalAssetContract)] = true;
+        digitalAssetContract.initialize(_assetPrice, _parentAsset, _commissionRate, msg.sender);
+        isAssetActive[digitalAssetContract] = true;
         emit ListAsset(digitalAssetContract, _assetPrice);
-        return address(digitalAssetContract);
+        return digitalAssetContract;
     }
 
-    function cancelListing(address digitalAssetContract) public {
+    function cancelListing(DigitalAssetContract digitalAssetContract) public {
+        address assetOwner = digitalAssetContract.owner();
+        require(msg.sender == assetOwner, "Unauthorized");
         isAssetActive[digitalAssetContract] = false;
     }
 
-    function rateAsset(DigitalAssetContract asset, uint8 star) public {
-        bool isCustomer = asset.isCustomer();
+    function rateAsset(DigitalAssetContract asset, uint8 star) public returns (uint8) {
+        bool isCustomer = asset.isCustomer(msg.sender);
         require(isCustomer, "Not a customer");
         require(star <= 5, "Invalid rating");
 
         rating[asset][msg.sender] = star;
         emit Rating(asset, msg.sender, star);
+        return star;
     }
 
-    function reportPlagiarism(address digitalAssetContract) public {
+    function reportPlagiarism(DigitalAssetContract digitalAssetContract) public {
+        require(msg.sender == contractOnwer, "Unauthorized");
         isAssetActive[digitalAssetContract] = false;
     }
 }

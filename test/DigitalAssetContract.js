@@ -1,5 +1,6 @@
 const { expect } = require("chai")
 const { BigNumber } = require("ethers")
+const { ethers } = require("hardhat")
 
 describe("DigitalAssetContract", function () {
     it("", async function () {
@@ -7,7 +8,13 @@ describe("DigitalAssetContract", function () {
 
         const DigitalAssetContract = await ethers.getContractFactory("DigitalAssetContract")
 
-        const digitalAssetContract = await DigitalAssetContract.deploy(100)
+        const digitalAssetContract = await DigitalAssetContract.deploy()
+        await digitalAssetContract.initialize(
+            100,
+            ethers.constants.AddressZero,
+            `${10 ** 16}`,
+            owner.address
+        )
 
         expect(await digitalAssetContract.getPrice()).to.equal(100)
 
