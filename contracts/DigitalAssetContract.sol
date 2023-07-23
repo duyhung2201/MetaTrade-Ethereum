@@ -29,9 +29,10 @@ contract DigitalAssetContract {
     function initialize(
         uint256 assetPrice,
         address payable _parentAsset,
-        uint256 _commissionRate
+        uint256 _commissionRate,
+        address _owner
     ) public {
-        owner = msg.sender;
+        owner = _owner;
         digitalAssetPrice = assetPrice;
         parentAsset = DigitalAssetContract(_parentAsset);
         commissionRate = _commissionRate;
@@ -111,8 +112,8 @@ contract DigitalAssetContract {
         return customerAddrToData[msg.sender].encryptedSymmetricKey;
     }
 
-    function isCustomer() public view returns (bool) {
-        if (userComparedHashes[msg.sender]) {
+    function isCustomer(address sender) public view returns (bool) {
+        if (userComparedHashes[sender]) {
             return true;
         }
         return false;
